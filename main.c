@@ -39,7 +39,7 @@ int main(int argc, char **argv){
 	tailleSousIntervalle = (int)tailleSousIntervalle / n;
 	
 	//on initialise et rempli le tableau de sous intervalle
-	int sousIntervalle[n+1];
+	int sousIntervalle[n+1]; //n+1 car on veut la première et la dernière valeurs de l'intervalle principale
 	
 	for(int i = 0; i <= n; i++){
 		int temp = 0;
@@ -69,7 +69,7 @@ int main(int argc, char **argv){
 		}
 		if(pid==0){
 			printf("-----------------------------------------------Fils\n");
-			/*int tampon, compteur = 0;
+			int tampon, compteur = 0;
 			int intervalle[2];
 			//on ferme les tubes inutiles
 			for(int j=0; j<10; j++){
@@ -92,36 +92,30 @@ int main(int argc, char **argv){
 			}
 			
 			//on ferme le côté du tube qui vient d'être utilisé	
-			close(T[i][0]);*/
+			close(T[i][0]);
 			
 			exit(0);
 		}
 		else{
-			//on créer les sous intervalle a envoyer aux fils
-			/*int SousIntervalleAEnvoyer[2]
 			
-			if(i == 0){
-				intervalle[0] = 2;
-				intervalle[1] = 100;
-			}else{
-				intervalle[0] = (i * 100) + 1;
-				intervalle[1] = (i + 1) * 100;
-			}*/
 			
-			if(i == 0){
-				for(int j = 0; j < n; j++){
-					if(j == n-1){
-						printf("%d - %d\n", sousIntervalle[j], sousIntervalle[j+1]);
-					}else{
-						printf("%d - %d\n", sousIntervalle[j], sousIntervalle[j+1]-1);
-					}
+			//on envoie les bornes aux fils dans la dernière boucle (quand tous les fils sont crées)
+			if(i==9){	//on est dans le dernière boucle
+				int compteur = 0; //permet de savoir dans qu'elle partie du tableau sousIntervalle on est
+				while(compteur < 10){
+					//on créer les sous intervalle a envoyer aux fils
+					int sousIntervalleAEnvoyer[2];
+					sousIntervalleAEnvoyer[0] = sousIntervalle[compteur];
+					sousIntervalleAEnvoyer[1] = sousIntervalle[compteur+1] - 1;
+					
+					//on envoie les sousIntervalleAEnvoyer
+					close(T[compteur][0]);
+					write(T[compteur][1], &sousIntervalleAEnvoyer, 2*sizeof(int));
+					close(T[compteur][1]);
+					
+					compteur++;
 				}
 			}
-			
-			/*close(T[i][0]);
-			write(T[i][1], &intervalle, 2*sizeof(int));
-			close(T[i][1]);*/
-		
 		}
 	}
 	for(i=0; i<10; i++){
