@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <math.h>
+#include <stdbool.h>
 
 //return 1 si le chiffre est premier
 int premier(int n){
@@ -16,109 +17,165 @@ int premier(int n){
 }
 
 int main(int argc, char **argv){
-	int i, T[10][2];
-	
-	//on créer les 10 pipes, 1 pour chaque fils
-	for(i=0; i<10; i++){
-		if(pipe(T[i])==-1){
-			perror("erreur tube");
-			exit(1);
+	if(argc == 3){
+		int i, p;
+		
+		p = (int)strtol(argv[2], NULL, 10);
+		
+		int F[p][2], P[p][2];
+		
+		//on créer les p*2 pipes, p pour commu pere->fils (F) et p pour commu fils->pere (P)
+		for(i=0; i<p; i++){
+			if(pipe(F[i])==-1){
+				perror("erreur tube F");
+				exit(1);
+			}
+			if(pipe(P[i])==-1){
+				perror("eereur tube P");
+				exit(1);
+			}
 		}
-	}
-	
-	//on créer les intervalles
-	int intervalle[2];
-	intervalle[0] = 2;
-	intervalle[1] = 1000;
-	
-	//on initialise la taille des sous intervalles
-	int n;
-	n = (int)strtol(argv[1], NULL, 10);
-	
-	int tailleSousIntervalle = intervalle[1] - intervalle[0];
-	tailleSousIntervalle = (int)tailleSousIntervalle / n;
-	
-	//on initialise et rempli le tableau de sous intervalle
-	int sousIntervalle[n+1]; //n+1 car on veut la première et la dernière valeurs de l'intervalle principale
-	
-	for(int i = 0; i <= n; i++){
-		int temp = 0;
-		temp = intervalle[0] + (i*tailleSousIntervalle);
-		if(i==n){
-			temp = temp + (intervalle[1] - intervalle[0]) % n;
-		}
-		sousIntervalle[i]=temp;
-	}
-	
-	/*for(int i = 0; i < n; i++){
-		if(i == n-1){
-			printf("%d - %d\n", sousIntervalle[i], sousIntervalle[i+1]);
-		}else{
-			printf("%d - %d\n", sousIntervalle[i], sousIntervalle[i+1]-1);
-		}	
-	}*/
-	
-	//on passe dans la zone des 10 fils
-	for(i=0; i<10; i++){
-		int pid;
-		//création des fils
-		pid=fork();
-		if(pid<0){
-			perror("Erreur de fork");
-			exit(1);
-		}
-		if(pid==0){
-			printf("-----------------------------------------------Fils\n");
-			int tampon, compteur = 0;
-			int intervalle[2];
-			//on ferme les tubes inutiles
-			for(int j=0; j<10; j++){
-				if(j!=i){
-					close(T[j][0]);
-					close(T[j][1]);
+		
+		//on passe dans la zone des p fils
+		for(i=0; i<p; i++){
+			int pid;
+			//création des fils
+			pid=fork();
+			if(pid<0){
+				perror("Erreur de fork");
+				exit(1);
+			}
+			if(pid==0){
+				int tampon, compteur = 0;
+				int intervalle[2];
+				//on ferme les tubes inutiles
+				for(int j=0; j<p; j++){
+					if(j!=i){
+						//les tubes F
+						close(F[j][0]);
+						close(F[j][1]);
+						//les tubes P
+						close(P[j][0]);
+						close(P[j][1]);
+					}
 				}
-			}
-			//on ferme le coté du tube inutile
-			close(T[i][1]);
-			//on lit ce qu'il y a dans le tube
-			while(read(T[i][0], &tampon, sizeof(int)) != 0){
-				intervalle[compteur] = tampon;
-				compteur++;
-			}
-			
-			//on cherche et affiche les nombre premier
-			for(int temp = intervalle[0]; temp <= intervalle[1]; temp++){
-				if(premier(temp) == 1) printf("%d\n", temp);
-			}
-			
-			//on ferme le côté du tube qui vient d'être utilisé	
-			close(T[i][0]);
-			
-			exit(0);
-		}
-		else{
-			
-			
-			//on envoie les bornes aux fils dans la dernière boucle (quand tous les fils sont crées)
-			if(i==9){	//on est dans le dernière boucle
-				int compteur = 0; //permet de savoir dans qu'elle partie du tableau sousIntervalle on est
-				while(compteur < 10){
-					//on créer les sous intervalle a envoyer aux fils
-					int sousIntervalleAEnvoyer[2];
-					sousIntervalleAEnvoyer[0] = sousIntervalle[compteur];
-					sousIntervalleAEnvoyer[1] = sousIntervalle[compteur+1] - 1;
-					
-					//on envoie les sousIntervalleAEnvoyer
-					close(T[compteur][0]);
-					write(T[compteur][1], &sousIntervalleAEnvoyer, 2*sizeof(int));
-					close(T[compteur][1]);
-					
-					compteur++;
+				//on ferme le coté du tube inutile (ecriture dans F et lecture dans P)
+				close(F[i][1]);
+				close(P[i][0]);
+				//on lit ce qu'il y a dans le tube (les deux valeurs de l'intervalle a chercher)
+				bool stop = false;
+				while(stop == false){
+					read(F[i][0], &intervalle, 2*sizeof(int));
+					if(intervalle[0] != 0){
+						//on cherche et renvoies les nombre premiers au pere
+						for(int temp = intervalle[0]; temp <= intervalle[1]; temp++){
+							if(premier(temp) == 1){
+								write(P[i][1], &temp, sizeof(int));
+							}
+						}
+						//valeur d'arret de lecture pour le pere
+						int arret = 0;
+						write(P[i][1], &arret, sizeof(int));
+					}else{
+						stop = true;
+					}
 				}
+				//on ferme le côté du tube qui vient d'être utilisé	
+				close(F[i][0]);
+				close(P[i][1]);
+				
+				exit(0);
 			}
 		}
-	}
-	for(i=0; i<10; i++){
-		wait(NULL);
+		
+		//on est dans le pere
+		
+		//on créer l'intervalle
+		int intervalle[2];
+		intervalle[0] = 2;
+		intervalle[1] = 1000;
+		
+		//on initialise la taille des sous intervalles en fonction de l'entrée utilisateur
+		int n;
+		n = (int)strtol(argv[1], NULL, 10);
+		
+		int tailleSousIntervalle = intervalle[1] - intervalle[0];
+		tailleSousIntervalle = (int)tailleSousIntervalle / n;
+		
+		//on initialise et rempli le tableau de sous intervalle
+		int sousIntervalle[n+1]; //n+1 car on veut la premiere et la derniere valeurs de l'intervalle principale
+		
+		for(int i = 0; i <= n; i++){
+			int temp = 0;
+			temp = intervalle[0] + (i*tailleSousIntervalle);
+			if(i==n){
+				temp = temp + (intervalle[1] - intervalle[0]) % n; //on rajoute les valeurs manquante car on arrondi
+			}
+			sousIntervalle[i] = temp;
+		}
+		
+		//on envoie les sousintervallesAAfficher et on récupères et affichesles valeurs par les fils
+		bool FINI = false;
+		int compteurBoucleFils = 0; //permet de savoir combien de fois on a envoyer aux fils les sousIntervalles, si on a p fils et qu'on a envoyer p intervalle, alors on fait compteurBoucleFils++
+		
+		//on ferme cotes du tube qu'on n'utilise pas
+		for(int i=0; i<p; i++){
+			close(F[i][0]);
+			close(P[i][1]);
+		}
+		
+		while(FINI == false){
+			//sert a envoyer les intervalles au fils
+			i=0;
+			while( (i < p) && (FINI == false)){
+				//on créer et envoie les sousIntervalleAEnvoyer
+				int sousIntervalleAEnvoyer[2];
+				sousIntervalleAEnvoyer[0] = sousIntervalle[(10*compteurBoucleFils) + i];
+				sousIntervalleAEnvoyer[1] = sousIntervalle[(10*compteurBoucleFils) + i+1]-1;
+				
+				write(F[i][1], &sousIntervalleAEnvoyer, 2*sizeof(int));
+				//on verifie si tous les intervalles ont été envoyé
+				
+				if(p*compteurBoucleFils + i+1 == n){
+					FINI = true;
+				}
+				i++;
+			}
+			
+			//on récupère les valeurs
+			int j = 0;
+			while(( j < i)){ //j inf a i, car si on arrete la boucle avant un tour complet des fils, il faut savoir a partir de quel fils on arrete de lire, si on a envoyer le dernier intervalle au fils 3, il faut arreter de lire au tube 3, on s'arrete donc à i-1 (i-1 car on fait i++)
+				int tampon = 1;
+				while(tampon != 0){
+					read(P[j][0], &tampon, sizeof(int));
+					if(tampon != 0){
+						printf("%d ", tampon);
+					}
+				}
+				printf("\n");
+				j++;
+			}
+		compteurBoucleFils++;
+		}
+		
+		//condition d'arret pour les fils
+		int intervalleArret[2];
+		intervalleArret[0] = 0;
+		intervalleArret[1] = 0;
+		for(i=0; i<p; i++){
+			write(F[i][1], &intervalleArret, 2*sizeof(int));
+		}
+		
+		//on ferme les cotes du tube qu'on vient d'utiliser
+		for(int i=0; i<p; i++){
+			close(F[i][1]);
+			close(P[i][0]);
+		}
+		
+		for(i=0; i<p; i++){
+			wait(NULL);
+		}
+	}else{
+		printf("Il faut entrer le nombre d'intervalle suivi du nombre de fils\n");
 	}
 }
