@@ -35,6 +35,7 @@ int main(int argc, char **argv){
 		//on passe dans la zone des 10 fils
 		for(i=0; i<10; i++){
 			int pid;
+			
 			//création des fils
 			pid=fork();
 			if(pid<0){
