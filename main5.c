@@ -173,6 +173,6 @@ int main(int argc, char **argv){
 			wait(NULL);
 		}
 	}else{
-		printf("Il faut entrer un parametre (10)");
+		printf("Il faut entrer le nombre d'intervalle\n");
 	}
 }
