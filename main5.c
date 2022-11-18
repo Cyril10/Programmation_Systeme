@@ -35,6 +35,7 @@ int main(int argc, char **argv){
 		//on passe dans la zone des 10 fils
 		for(i=0; i<10; i++){
 			int pid;
+			
 			//création des fils
 			pid=fork();
 			if(pid<0){
@@ -91,7 +92,7 @@ int main(int argc, char **argv){
 		intervalle[0] = 2;
 		intervalle[1] = 1000;
 		
-		//on initialise la taille des sous intervalles en fonction de l'entrée utilisateur(pour l'instant 10)
+		//on initialise la taille des sous intervalles en fonction de l'entrée utilisateur
 		int n;
 		n = (int)strtol(argv[1], NULL, 10);
 		
@@ -172,6 +173,6 @@ int main(int argc, char **argv){
 			wait(NULL);
 		}
 	}else{
-		printf("Il faut entrer un parametre (10)");
+		printf("Il faut entrer le nombre d'intervalle\n");
 	}
 }
