@@ -91,7 +91,7 @@ int main(int argc, char **argv){
 		intervalle[0] = 2;
 		intervalle[1] = 1000;
 		
-		//on initialise la taille des sous intervalles en fonction de l'entrée utilisateur(pour l'instant 10)
+		//on initialise la taille des sous intervalles en fonction de l'entrée utilisateur
 		int n;
 		n = (int)strtol(argv[1], NULL, 10);
 		
